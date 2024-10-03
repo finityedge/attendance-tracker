@@ -32,13 +32,13 @@ public class AttendanceController {
     @Autowired
     private QRCodeService qrCodeService;
 
-    @GetMapping("/scan")
-    public String scanQrCodePage(Model model, Authentication authentication) {
-        boolean isAdmin = authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-        model.addAttribute("isAdmin", isAdmin);
-        return "scan-qr";
-    }
+//    @GetMapping("/scan")
+//    public String scanQrCodePage(Model model, Authentication authentication) {
+//        boolean isAdmin = authentication.getAuthorities().stream()
+//                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+//        model.addAttribute("isAdmin", isAdmin);
+//        return "scan-qr";
+//    }
 
     @PostMapping("/check-in-out")
     @ResponseBody
@@ -54,21 +54,61 @@ public class AttendanceController {
         }
     }
 
+    @GetMapping("/scan")
+    public String scanQrCodePage(Model model, Authentication authentication) {
+        boolean isAdmin = authentication != null &&
+                authentication.getAuthorities().stream()
+                        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        model.addAttribute("isAdmin", isAdmin);
+        assert authentication != null;
+        model.addAttribute("username", authentication.getName()); // TODO: Change to actual admin username (if needed)
+        return "scan-qr";
+    }
+
     @GetMapping("/logs")
-    public String getAttendanceLogs(@AuthenticationPrincipal UserDetails userDetails, Model model) {
+    public String getAttendanceLogs(@AuthenticationPrincipal UserDetails userDetails,
+                                    Model model,
+                                    Authentication authentication) {
         User user = (User) userService.getUserByUsername(userDetails.getUsername());
         List<AttendanceLog> logs = attendanceService.getUserAttendanceLogs(user);
+
+        boolean isAdmin = authentication != null &&
+                authentication.getAuthorities().stream()
+                        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        model.addAttribute("isAdmin", isAdmin);
+        model.addAttribute("username", user.getUsername());
         model.addAttribute("logs", logs);
         return "attendance-logs";
     }
 
     @GetMapping("/admin/logs")
     public String getAdminAttendanceLogs(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            Model model) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            Model model,
+            Authentication authentication) {
+        boolean isAdmin = authentication != null &&
+                authentication.getAuthorities().stream()
+                        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isAdmin) {
+            return "redirect:/attendance/logs";
+        }
+
+        if (startDate == null) {
+            startDate = LocalDate.now().withDayOfMonth(1); // First day of current month
+        }
+        if (endDate == null) {
+            endDate = LocalDate.now(); // Current date
+        }
+
         List<AttendanceLog> logs = attendanceService.getAttendanceLogsBetweenDates(startDate, endDate);
+        model.addAttribute("isAdmin", true);
         model.addAttribute("logs", logs);
+        model.addAttribute("username", authentication.getName()); // TODO: Change to actual admin username (if needed
+        model.addAttribute("startDate", startDate);
+        model.addAttribute("endDate", endDate);
         return "admin-attendance-logs";
     }
 }

@@ -3,146 +3,242 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Attendance System</title>
+  <title>QR Code Scanner - Attendance System</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.1/qr-scanner.umd.min.js"></script>
 </head>
-<body class="bg-gray-100 h-screen flex flex-col">
-<header class="bg-blue-600 text-white p-4">
-  <h1 class="text-2xl font-bold">Attendance System 📅</h1>
-</header>
-<main class="flex-grow flex items-center justify-center p-4">
-  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-    <div id="employee-view">
-      <h2 class="text-xl font-bold mb-4 text-center">Scan Attendance QR Code 📷</h2>
-      <div id="video-container" class="w-full h-64 bg-black mb-4 relative">
-        <video id="qr-video" class="w-full h-full object-cover"></video>
-        <div id="scan-region" class="absolute inset-0 border-2 border-yellow-400 opacity-50"></div>
-      </div>
-      <div id="scan-result" class="mb-4 p-4 rounded-md text-center font-bold hidden"></div>
-      <button id="toggle-camera-button" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-2">
-        Start Camera
-      </button>
+<body class="bg-gray-100">
+<div class="flex h-screen">
+  <!-- Sidebar -->
+  <div class="bg-blue-800 text-white w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition duration-200 ease-in-out">
+    <div class="flex items-center space-x-2 px-4">
+      <i class="fas fa-calendar-check text-2xl"></i>
+      <span class="text-2xl font-extrabold">AttendanceApp</span>
     </div>
-    <div id="admin-view" class="hidden">
-      <h2 class="text-xl font-bold mb-4 text-center">Generate Attendance QR Code</h2>
-      <div id="qr-code-container" class="w-full mb-4 flex justify-center">
-        <img id="qr-code-image" alt="QR Code" class="w-64 h-64">
-      </div>
-      <button id="generate-qr-button" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-        Generate New QR Code
-      </button>
-    </div>
-  </div>
-</main>
-<script th:inline="javascript">
-  const video = document.getElementById('qr-video');
-  const scanResult = document.getElementById('scan-result');
-  const toggleCameraButton = document.getElementById('toggle-camera-button');
-  const generateQRButton = document.getElementById('generate-qr-button');
-  const qrCodeImage = document.getElementById('qr-code-image');
 
+    <nav class="space-y-2">
+      <a href="/attendance/scan" class="flex items-center space-x-2 py-2.5 px-4 rounded bg-blue-900">
+        <i class="fas fa-qrcode"></i>
+        <span>Scan QR</span>
+      </a>
+      <a href="/attendance/logs" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+        <i class="fas fa-clipboard-list"></i>
+        <span>My Attendance</span>
+      </a>
+      <div th:if="${isAdmin}">
+        <a href="/attendance/admin/logs" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+          <i class="fas fa-users-viewfinder"></i>
+          <span>Admin Logs</span>
+        </a>
+        <a href="#" onclick="showQRGenerator()" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+          <i class="fas fa-qrcode"></i>
+          <span>Generate QR</span>
+        </a>
+      </div>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Top header -->
+    <header class="bg-white shadow">
+      <div class="flex items-center justify-between p-4">
+        <div class="flex items-center space-x-4">
+          <button class="md:hidden" onclick="toggleSidebar()">
+            <i class="fas fa-bars text-xl"></i>
+          </button>
+          <h1 class="text-2xl font-bold">Attendance Scanner 📸</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <span th:text="${username}" class="font-medium"></span>
+          <form th:action="@{/logout}" method="post">
+            <button type="submit" class="text-red-600 hover:text-red-800">
+              <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+      <div class="max-w-3xl mx-auto">
+        <!-- Employee View -->
+        <div id="employee-view" th:if="${!isAdmin}" class="bg-white rounded-lg shadow-lg p-6">
+          <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold mb-2">Scan Attendance QR Code</h2>
+            <p class="text-gray-600">Point your camera at the QR code to check in/out</p>
+          </div>
+
+          <div class="relative aspect-w-16 aspect-h-9 mb-6">
+            <div id="video-container" class="rounded-lg overflow-hidden bg-black">
+              <video id="qr-video" class="w-full h-full object-cover"></video>
+              <div class="absolute inset-0 border-2 border-blue-400 opacity-50 animate-pulse"></div>
+            </div>
+          </div>
+
+          <!-- Success/Error Message -->
+          <div id="scan-result" class="mb-6 p-4 rounded-md text-center hidden">
+            <div class="flex items-center justify-center">
+              <i class="fas fa-check-circle text-3xl mr-2"></i>
+              <span class="text-lg font-medium"></span>
+            </div>
+          </div>
+
+          <div class="flex space-x-4">
+            <button id="toggle-camera-button" class="flex-1 bg-blue-600 text-white px-4 py-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+              <i class="fas fa-camera mr-2"></i> Start Camera
+            </button>
+            <button id="manual-button" class="flex-1 bg-gray-600 text-white px-4 py-3 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+              <i class="fas fa-keyboard mr-2"></i> Manual Check-In/Out
+            </button>
+          </div>
+        </div>
+
+        <!-- Admin View -->
+        <div id="admin-view" th:if="${isAdmin}" class="bg-white rounded-lg shadow-lg p-6 hidden">
+          <div class="text-center mb-6">
+            <h2 class="text-2xl font-bold mb-2">Generate Attendance QR Code</h2>
+            <p class="text-gray-600">Create a new QR code for employee check-in/out</p>
+          </div>
+
+          <div id="qr-code-container" class="flex justify-center mb-6">
+            <div class="relative">
+              <img id="qr-code-image" alt="QR Code" class="w-64 h-64 border rounded-lg">
+              <div class="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg" id="qr-placeholder">
+                <i class="fas fa-qrcode text-6xl text-gray-400"></i>
+              </div>
+            </div>
+          </div>
+
+          <button id="generate-qr-button" class="w-full bg-green-600 text-white px-4 py-3 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+            <i class="fas fa-sync-alt mr-2"></i> Generate New QR Code
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
   let qrScanner = null;
-  let isAdmin = /*[[${isAdmin}]]*/ false;
   let isProcessing = false;
   let scanCooldown = false;
 
-  if (isAdmin) {
+  function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.toggle('-translate-x-full');
+  }
+
+  function showQRGenerator() {
     document.getElementById('employee-view').classList.add('hidden');
     document.getElementById('admin-view').classList.remove('hidden');
   }
 
-  function showResult(message, isError = false) {
-    scanResult.textContent = message;
-    scanResult.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
-    scanResult.classList.add(
-            isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-    );
+  function showScanResult(message, success = true) {
+    const resultDiv = document.getElementById('scan-result');
+    resultDiv.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+
+    if (success) {
+      resultDiv.classList.add('bg-green-100', 'text-green-800');
+      resultDiv.querySelector('i').classList.add('text-green-500');
+    } else {
+      resultDiv.classList.add('bg-red-100', 'text-red-800');
+      resultDiv.querySelector('i').classList.add('text-red-500');
+    }
+
+    resultDiv.querySelector('span').textContent = message;
+    resultDiv.classList.remove('hidden');
+
+    if (success) {
+      setTimeout(() => {
+        window.location.href = '/attendance/logs';
+      }, 2000);
+    }
   }
 
   function initializeScanner() {
     if (!qrScanner) {
-      qrScanner = new QrScanner(video, result => {
-        if (!isProcessing && !scanCooldown) {
-          handleQRCode(result);
-        }
-      });
+      qrScanner = new QrScanner(
+              document.getElementById('qr-video'),
+              result => handleQRCode(result),
+              {
+                highlightScanRegion: true,
+                highlightCodeOutline: true,
+              }
+      );
     }
   }
 
   async function handleQRCode(result) {
+    if (isProcessing || scanCooldown) return;
     isProcessing = true;
-    if (qrScanner) {
-      qrScanner.stop();
-    }
 
     try {
-      const response = await checkInOut(result);
-      showResult(response.message + ' QR Code: ' + result);
+      const response = await fetch('/attendance/check-in-out', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrCode: result })
+      });
 
-      // Enable cooldown
+      const data = await response.json();
+
+      if (response.ok) {
+        showScanResult(data.message, true);
+        if (qrScanner) qrScanner.stop();
+      } else {
+        showScanResult(data.error || 'Failed to process attendance', false);
+      }
+
       scanCooldown = true;
       setTimeout(() => {
         scanCooldown = false;
-        if (qrScanner) {
-          qrScanner.start();
-        }
-      }, 5000); // 5 second cooldown
+      }, 5000);
     } catch (error) {
-      showResult(error.message, true);
-      if (qrScanner) {
-        qrScanner.start();
-      }
+      showScanResult('Error processing attendance', false);
     } finally {
       isProcessing = false;
     }
   }
 
-  toggleCameraButton.addEventListener('click', () => {
+  // Event Listeners
+  document.getElementById('toggle-camera-button')?.addEventListener('click', () => {
     if (!qrScanner) {
       initializeScanner();
       qrScanner.start();
-      toggleCameraButton.textContent = 'Stop Camera';
+      document.getElementById('toggle-camera-button').innerHTML = '<i class="fas fa-stop mr-2"></i> Stop Camera';
     } else {
       qrScanner.stop();
       qrScanner.destroy();
       qrScanner = null;
-      toggleCameraButton.textContent = 'Start Camera';
-      scanResult.classList.add('hidden');
+      document.getElementById('toggle-camera-button').innerHTML = '<i class="fas fa-camera mr-2"></i> Start Camera';
+      document.getElementById('scan-result').classList.add('hidden');
     }
   });
 
-  async function checkInOut(qrCode) {
-    const response = await fetch('/attendance/check-in-out', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ qrCode: qrCode }),
-    });
+  document.getElementById('manual-button')?.addEventListener('click', () => {
+    handleQRCode('ATND:OFFICE_ENTRANCE:1727980996:dy46trdghjfjhfhgfxt43xdfxggk');
+  });
 
-    if (!response.ok) {
-      throw new Error('Failed to process attendance');
+  document.getElementById('generate-qr-button')?.addEventListener('click', async () => {
+    try {
+      const response = await fetch('/admin/generate-qr', {
+        method: 'POST'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        document.getElementById('qr-code-image').src = 'data:image/png;base64,' + data.qrCodeImage;
+        document.getElementById('qr-placeholder').classList.add('hidden');
+      } else {
+        alert('Failed to generate QR code');
+      }
+    } catch (error) {
+      alert('Error generating QR code');
     }
-
-    return await response.json();
-  }
-
-  if (isAdmin) {
-    generateQRButton.addEventListener('click', () => {
-      fetch('/admin/generate-qr', {
-        method: 'POST',
-      })
-              .then(response => response.json())
-              .then(data => {
-                qrCodeImage.src = 'data:image/png;base64,' + data.qrCodeImage;
-              })
-              .catch(error => {
-                console.error('Error generating QR code:', error);
-                showResult('Failed to generate QR code', true);
-              });
-    });
-  }
+  });
 </script>
 </body>
 </html>

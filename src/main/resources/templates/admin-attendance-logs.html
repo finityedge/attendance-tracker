@@ -1,10 +1,183 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Attendance Logs - Attendance System</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-gray-100">
+<div class="flex h-screen">
+    <!-- Sidebar -->
+    <div class="bg-blue-800 text-white w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition duration-200 ease-in-out">
+        <div class="flex items-center space-x-2 px-4">
+            <i class="fas fa-calendar-check text-2xl"></i>
+            <span class="text-2xl font-extrabold">AttendanceApp</span>
+        </div>
 
+        <nav class="space-y-2">
+            <a href="/attendance/scan" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+                <i class="fas fa-qrcode"></i>
+                <span>Scan QR</span>
+            </a>
+            <a href="/attendance/logs" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+                <i class="fas fa-clipboard-list"></i>
+                <span>My Attendance</span>
+            </a>
+            <div th:if="${isAdmin}">
+                <a href="/attendance/admin/logs" class="flex items-center space-x-2 py-2.5 px-4 rounded bg-blue-900">
+                    <i class="fas fa-users-viewfinder"></i>
+                    <span>Admin Logs</span>
+                </a>
+                <a href="/attendance/scan" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Generate QR</span>
+                </a>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Top header -->
+        <header class="bg-white shadow">
+            <div class="flex items-center justify-between p-4">
+                <div class="flex items-center space-x-4">
+                    <button class="md:hidden" onclick="toggleSidebar()">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <h1 class="text-2xl font-bold">Admin Attendance Logs 📊</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span th:text="${username}" class="font-medium"></span>
+                    <form th:action="@{/logout}" method="post">
+                        <button type="submit" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main content -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+            <!-- Filters -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Start Date</label>
+                        <input type="date" id="startDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">End Date</label>
+                        <input type="date" id="endDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Employee</label>
+                        <select id="employee" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                            <option value="">All Employees</option>
+                            <option th:each="user : ${users}" th:value="${user.id}" th:text="${user.firstName + ' ' + user.lastName}"></option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-between">
+                    <button onclick="filterLogs()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        <i class="fas fa-filter"></i> Apply Filters
+                    </button>
+                    <button onclick="exportToExcel()" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        <i class="fas fa-file-excel"></i> Export to Excel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Logs Table -->
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-In</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-Out</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tr th:each="log : ${logs}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                        <span class="text-xl font-medium text-gray-600" th:text="${#strings.substring(log.user.firstName,0,1)}"></span>
+                                    </div>
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900" th:text="${log.user.firstName + ' ' + log.user.lastName}"></div>
+                                    <div class="text-sm text-gray-500" th:text="${log.user.email}"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap" th:text="${#temporals.format(log.date, 'yyyy-MM-dd')}"></td>
+                        <td class="px-6 py-4 whitespace-nowrap" th:text="${#temporals.format(log.checkInTime, 'HH:mm:ss')}"></td>
+                        <td class="px-6 py-4 whitespace-nowrap" th:text="${log.checkOutTime != null ? #temporals.format(log.checkOutTime, 'HH:mm:ss') : 'Not checked out'}"></td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                    <span th:if="${log.checkOutTime != null}"
+                          th:with="duration=${T(java.time.Duration).between(log.checkInTime, log.checkOutTime)}"
+                          th:text="${#numbers.formatInteger(duration.toHours(), 2) + ':' +
+                                    #numbers.formatInteger(duration.toMinutesPart(), 2) + ':' +
+                                    #numbers.formatInteger(duration.toSecondsPart(), 2)}">
+                    </span>
+                            <span th:unless="${log.checkOutTime != null}">N/A</span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                    <span th:if="${log.checkOutTime != null}" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        Completed ✅
+                    </span>
+                            <span th:unless="${log.checkOutTime != null}" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                        In Progress ⏳
+                    </span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        sidebar.classList.toggle('-translate-x-full');
+    }
+
+    function filterLogs() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const employee = document.getElementById('employee').value;
+
+        window.location.href = `/admin/attendance/logs?startDate=${startDate}&endDate=${endDate}&employeeId=${employee}`;
+    }
+
+    function exportToExcel() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const employee = document.getElementById('employee').value;
+
+        window.location.href = `/admin/attendance/export?startDate=${startDate}&endDate=${endDate}&employeeId=${employee}`;
+    }
+
+    // Initialize date inputs with current month
+    window.onload = function() {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+        document.getElementById('startDate').value = firstDay.toISOString().split('T')[0];
+        document.getElementById('endDate').value = lastDay.toISOString().split('T')[0];
+    }
+</script>
 </body>
 </html>

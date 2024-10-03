@@ -3,45 +3,256 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Attendance Logs - Attendance System</title>
+  <title>My Attendance Logs - Attendance System</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
-<header class="bg-blue-600 text-white p-4">
-  <h1 class="text-2xl font-bold">Attendance System 📅</h1>
-</header>
-<main class="flex-grow container mx-auto p-4">
-  <h2 class="text-2xl font-bold mb-4">Your Attendance Logs 📊</h2>
-  <div class="bg-white shadow-md rounded-lg overflow-hidden">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
-      <tr>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-In Time</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-Out Time</th>
-        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-      </tr>
-      </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
-      <tr th:each="log : ${logs}">
-        <td class="px-6 py-4 whitespace-nowrap" th:text="${#temporals.format(log.date, 'yyyy-MM-dd')}"></td>
-        <td class="px-6 py-4 whitespace-nowrap" th:text="${#temporals.format(log.checkInTime, 'HH:mm:ss')}"></td>
-        <td class="px-6 py-4 whitespace-nowrap" th:text="${log.checkOutTime != null ? #temporals.format(log.checkOutTime, 'HH:mm:ss') : 'Not checked out'}"></td>
-        <td class="px-6 py-4 whitespace-nowrap">
-                            <span th:if="${log.checkOutTime != null}" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                Completed ✅
-                            </span>
-          <span th:unless="${log.checkOutTime != null}" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                In Progress ⏳
-                            </span>
-        </td>
-      </tr>
-      </tbody>
-    </table>
+<body class="bg-gray-100">
+<div class="flex h-screen">
+  <!-- Sidebar -->
+  <div class="bg-blue-800 text-white w-64 space-y-6 py-7 px-2 absolute inset-y-0 left-0 transform -translate-x-full md:relative md:translate-x-0 transition duration-200 ease-in-out">
+    <div class="flex items-center space-x-2 px-4">
+      <i class="fas fa-calendar-check text-2xl"></i>
+      <span class="text-2xl font-extrabold">AttendanceApp</span>
+    </div>
+
+    <nav class="space-y-2">
+      <a href="/attendance/scan" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+        <i class="fas fa-qrcode"></i>
+        <span>Scan QR</span>
+      </a>
+      <a href="/attendance/logs" class="flex items-center space-x-2 py-2.5 px-4 rounded bg-blue-900">
+        <i class="fas fa-clipboard-list"></i>
+        <span>My Attendance</span>
+      </a>
+      <div th:if="${isAdmin}">
+        <a href="/attendance/admin/logs" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+          <i class="fas fa-users-viewfinder"></i>
+          <span>Admin Logs</span>
+        </a>
+        <a href="/attendance/scan" class="flex items-center space-x-2 py-2.5 px-4 rounded transition duration-200 hover:bg-blue-700">
+          <i class="fas fa-qrcode"></i>
+          <span>Generate QR</span>
+        </a>
+      </div>
+    </nav>
   </div>
-</main>
-<footer class="bg-gray-200 text-center p-4">
-  <p>&copy; 2024 Attendance System. All rights reserved.</p>
-</footer>
+
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Top header -->
+    <header class="bg-white shadow">
+      <div class="flex items-center justify-between p-4">
+        <div class="flex items-center space-x-4">
+          <button class="md:hidden" onclick="toggleSidebar()">
+            <i class="fas fa-bars text-xl"></i>
+          </button>
+          <h1 class="text-2xl font-bold">My Attendance History 📊</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <div class="text-right">
+            <p class="text-sm text-gray-600">Welcome back,</p>
+            <p class="font-medium" th:text="${username}"></p>
+          </div>
+          <form th:action="@{/logout}" method="post">
+            <button type="submit" class="text-red-600 hover:text-red-800">
+              <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main content -->
+    <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+      <!-- Statistics Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="p-3 rounded-full bg-green-100 text-green-500">
+              <i class="fas fa-clock text-2xl"></i>
+            </div>
+            <div class="ml-4">
+              <p class="text-gray-500">Today's Status</p>
+              <p class="text-lg font-semibold" th:text="${todayLog != null ? 'Checked In' : 'Not Checked In'}">Not Checked In</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="p-3 rounded-full bg-blue-100 text-blue-500">
+              <i class="fas fa-calendar-check text-2xl"></i>
+            </div>
+            <div class="ml-4">
+              <p class="text-gray-500">This Month</p>
+              <p class="text-lg font-semibold" th:text="${monthlyAttendance + ' days'}">0 days</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="p-3 rounded-full bg-purple-100 text-purple-500">
+              <i class="fas fa-business-time text-2xl"></i>
+            </div>
+            <div class="ml-4">
+              <p class="text-gray-500">Avg. Working Hours</p>
+              <p class="text-lg font-semibold" th:text="${averageHours + ' hrs'}">0 hrs</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow p-6">
+          <div class="flex items-center">
+            <div class="p-3 rounded-full bg-yellow-100 text-yellow-500">
+              <i class="fas fa-stopwatch text-2xl"></i>
+            </div>
+            <div class="ml-4">
+              <p class="text-gray-500">Last Check-in</p>
+              <p class="text-lg font-semibold" th:text="${lastCheckIn != null ? #temporals.format(lastCheckIn, 'HH:mm') : 'N/A'}">N/A</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex flex-wrap gap-4">
+          <div class="flex-1 min-w-[200px]">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+            <select id="dateRange" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+              <option value="today">Today</option>
+              <option value="week">This Week</option>
+              <option value="month" selected>This Month</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+
+          <div class="flex-1 min-w-[200px] custom-dates hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+            <input type="date" id="startDate" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+          </div>
+
+          <div class="flex-1 min-w-[200px] custom-dates hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+            <input type="date" id="endDate" class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+          </div>
+
+          <div class="flex items-end">
+            <button onclick="filterLogs()" class="h-10 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+              <i class="fas fa-filter mr-2"></i> Apply Filter
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Table -->
+      <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-In</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Check-Out</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+            </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+            <tr th:each="log : ${logs}" th:class="${log.date.equals(#temporals.createToday())} ? 'bg-blue-50' : ''">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900" th:text="${#temporals.format(log.date, 'EEE, MMM d, yyyy')}"></div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900" th:text="${#temporals.format(log.checkInTime, 'HH:mm:ss')}"></div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900" th:text="${log.checkOutTime != null ? #temporals.format(log.checkOutTime, 'HH:mm:ss') : 'Not checked out'}"></div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900"
+                     th:with="duration=${log.checkOutTime != null ? T(java.time.Duration).between(log.checkInTime, log.checkOutTime) : null}"
+                     th:text="${duration != null ?
+                    #strings.concat(
+                        #numbers.formatInteger(duration.toHours(), 2),
+                        ':',
+                        #numbers.formatInteger(duration.toMinutesPart(), 2),
+                        ':',
+                        #numbers.formatInteger(duration.toSecondsPart(), 2)
+                    ) : 'In Progress'}">
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+            <span th:if="${log.checkOutTime != null}"
+                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                Completed ✅
+            </span>
+                <span th:unless="${log.checkOutTime != null}"
+                      class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                In Progress ⏳
+            </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  <i class="fas fa-building mr-1"></i> Main Office
+                </div>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty State -->
+        <div th:if="${#lists.isEmpty(logs)}" class="text-center py-12">
+          <div class="text-6xl mb-4">📅</div>
+          <h3 class="text-lg font-medium text-gray-900 mb-2">No attendance records found</h3>
+          <p class="text-gray-500">Start checking in to see your attendance history here.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.toggle('-translate-x-full');
+  }
+
+  function filterLogs() {
+    const dateRange = document.getElementById('dateRange').value;
+    let url = '/attendance/logs?';
+
+    if (dateRange === 'custom') {
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+      if (startDate && endDate) {
+        url += `startDate=${startDate}&endDate=${endDate}`;
+      }
+    } else {
+      url += `range=${dateRange}`;
+    }
+
+    window.location.href = url;
+  }
+
+  document.getElementById('dateRange').addEventListener('change', function() {
+    const customDates = document.querySelectorAll('.custom-dates');
+    if (this.value === 'custom') {
+      customDates.forEach(el => el.classList.remove('hidden'));
+    } else {
+      customDates.forEach(el => el.classList.add('hidden'));
+    }
+  });
+
+  // Initialize date range if custom is selected
+  if (new URLSearchParams(window.location.search).has('startDate')) {
+    document.getElementById('dateRange').value = 'custom';
+    document.querySelectorAll('.custom-dates').forEach(el => el.classList.remove('hidden'));
+  }
+</script>
 </body>
 </html>
