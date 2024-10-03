@@ -19,9 +19,9 @@
         <video id="qr-video" class="w-full h-full object-cover"></video>
         <div id="scan-region" class="absolute inset-0 border-2 border-yellow-400 opacity-50"></div>
       </div>
-      <div id="scan-result" class="mb-4 text-center font-bold"></div>
+      <div id="scan-result" class="mb-4 p-4 rounded-md text-center font-bold hidden"></div>
       <button id="toggle-camera-button" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-2">
-        Start/Stop Camera
+        Start Camera
       </button>
     </div>
     <div id="admin-view" class="hidden">
@@ -44,18 +44,57 @@
 
   let qrScanner = null;
   let isAdmin = /*[[${isAdmin}]]*/ false;
+  let isProcessing = false;
+  let scanCooldown = false;
 
   if (isAdmin) {
     document.getElementById('employee-view').classList.add('hidden');
     document.getElementById('admin-view').classList.remove('hidden');
   }
 
+  function showResult(message, isError = false) {
+    scanResult.textContent = message;
+    scanResult.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+    scanResult.classList.add(
+            isError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+    );
+  }
+
   function initializeScanner() {
     if (!qrScanner) {
       qrScanner = new QrScanner(video, result => {
-        scanResult.textContent = `Scanned: ${result}`;
-        checkInOut(result);
+        if (!isProcessing && !scanCooldown) {
+          handleQRCode(result);
+        }
       });
+    }
+  }
+
+  async function handleQRCode(result) {
+    isProcessing = true;
+    if (qrScanner) {
+      qrScanner.stop();
+    }
+
+    try {
+      const response = await checkInOut(result);
+      showResult(response.message);
+
+      // Enable cooldown
+      scanCooldown = true;
+      setTimeout(() => {
+        scanCooldown = false;
+        if (qrScanner) {
+          qrScanner.start();
+        }
+      }, 5000); // 5 second cooldown
+    } catch (error) {
+      showResult(error.message, true);
+      if (qrScanner) {
+        qrScanner.start();
+      }
+    } finally {
+      isProcessing = false;
     }
   }
 
@@ -69,24 +108,24 @@
       qrScanner.destroy();
       qrScanner = null;
       toggleCameraButton.textContent = 'Start Camera';
+      scanResult.classList.add('hidden');
     }
   });
 
-  function checkInOut(qrCode) {
-    fetch('/attendance/check-in-out', {
+  async function checkInOut(qrCode) {
+    const response = await fetch('/attendance/check-in-out', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ qrCode: qrCode }),
-    })
-            .then(response => response.json())
-            .then(data => {
-              scanResult.textContent = `Success: ${data.message}`;
-            })
-            .catch(error => {
-              scanResult.textContent = `Error: ${error.message}`;
-            });
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to process attendance');
+    }
+
+    return await response.json();
   }
 
   if (isAdmin) {
@@ -100,6 +139,7 @@
               })
               .catch(error => {
                 console.error('Error generating QR code:', error);
+                showResult('Failed to generate QR code', true);
               });
     });
   }
