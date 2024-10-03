@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan QR Code - Attendance System</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.1/qr-scanner.umd.min.js"></script>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+<header class="bg-blue-600 text-white p-4">
+  <h1 class="text-2xl font-bold">Attendance System 📅</h1>
+</header>
+<main class="flex-grow flex items-center justify-center p-4">
+  <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+    <h2 class="text-xl font-bold mb-4 text-center">Scan QR Code 📷</h2>
+    <div id="video-container" class="w-full h-64 bg-black mb-4 relative">
+      <video id="qr-video" class="w-full h-full object-cover"></video>
+      <div id="scan-region" class="absolute inset-0 border-2 border-yellow-400 opacity-50"></div>
+    </div>
+    <div id="scan-result" class="mb-4 text-center font-bold"></div>
+    <button id="start-button" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+      Start Scanning
+    </button>
+  </div>
+</main>
+<script th:inline="javascript">
+  const video = document.getElementById('qr-video');
+  const scanResult = document.getElementById('scan-result');
+  const startButton = document.getElementById('start-button');
+
+  const qrScanner = new QrScanner(video, result => {
+    scanResult.textContent = `Scanned: ${result}`;
+    checkInOut(result);
+  });
+
+  startButton.addEventListener('click', () => {
+    if (qrScanner.hasFlash) {
+      qrScanner.toggleFlash();
+    }
+    qrScanner.start();
+  });
+
+  function checkInOut(qrCode) {
+    fetch('/attendance/check-in-out', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ qrCode: qrCode }),
+    })
+            .then(response => response.json())
+            .then(data => {
+              scanResult.textContent = `Success: ${data.message}`;
+            })
+            .catch(error => {
+              scanResult.textContent = `Error: ${error.message}`;
+            });
+  }
+</script>
+</body>
+</html>
