@@ -78,7 +78,7 @@
 
     try {
       const response = await checkInOut(result);
-      showResult(response.message);
+      showResult(response.message + ' QR Code: ' + result);
 
       // Enable cooldown
       scanCooldown = true;
