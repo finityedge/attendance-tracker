@@ -60,9 +60,9 @@ public class QRCodeService {
         long timeDifference = currentTime - timestamp;
 
         // Check if the QR code is not older than 5 minutes
-        if (timeDifference > 300) {
-            return false;
-        }
+//        if (timeDifference > 300) {
+//            return false;
+//        }
 
         return parts[3].equals(qrCodeSecret);
     }
