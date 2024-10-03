@@ -45,6 +45,7 @@ public class AttendanceController {
     public ResponseEntity<?> checkInOut(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Map<String, String> payload) {
         User user = (User) userService.getUserByUsername(userDetails.getUsername());
         String qrCode = payload.get("qrCode");
+        System.out.println("QR Code: " + qrCode);
         try {
             AttendanceLog log = attendanceService.checkInOut(user, qrCode);
             return ResponseEntity.ok(Map.of("message", "Check-in/out successful", "log", log));
