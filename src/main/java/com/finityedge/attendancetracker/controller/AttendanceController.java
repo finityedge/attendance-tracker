@@ -8,6 +8,7 @@ import com.finityedge.attendancetracker.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Controller;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/attendance")
@@ -31,26 +33,23 @@ public class AttendanceController {
     private QRCodeService qrCodeService;
 
     @GetMapping("/scan")
-    public String scanQrCodePage(Model model) {
-        String qrCodeContent = qrCodeService.generateQRCodeContent("OFFICE_ENTRANCE");
-        try {
-            String qrCodeImage = qrCodeService.generateQRCodeImage(qrCodeContent, 250, 250);
-            model.addAttribute("qrCodeImage", qrCodeImage);
-        } catch (Exception e) {
-            // Handle exception
-        }
+    public String scanQrCodePage(Model model, Authentication authentication) {
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        model.addAttribute("isAdmin", isAdmin);
         return "scan-qr";
     }
 
     @PostMapping("/check-in-out")
     @ResponseBody
-    public ResponseEntity<?> checkInOut(@AuthenticationPrincipal UserDetails userDetails, @RequestBody String qrCodeContent) {
+    public ResponseEntity<?> checkInOut(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Map<String, String> payload) {
         User user = (User) userService.loadUserByUsername(userDetails.getUsername());
+        String qrCode = payload.get("qrCode");
         try {
-            AttendanceLog log = attendanceService.checkInOut(user, qrCodeContent);
-            return ResponseEntity.ok(log);
+            AttendanceLog log = attendanceService.checkInOut(user, qrCode);
+            return ResponseEntity.ok(Map.of("message", "Check-in/out successful", "log", log));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

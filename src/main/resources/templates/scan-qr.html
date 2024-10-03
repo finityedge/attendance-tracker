@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scan QR Code - Attendance System</title>
+  <title>Attendance System</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qr-scanner/1.4.1/qr-scanner.umd.min.js"></script>
 </head>
@@ -13,32 +13,63 @@
 </header>
 <main class="flex-grow flex items-center justify-center p-4">
   <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-    <h2 class="text-xl font-bold mb-4 text-center">Scan QR Code 📷</h2>
-    <div id="video-container" class="w-full h-64 bg-black mb-4 relative">
-      <video id="qr-video" class="w-full h-full object-cover"></video>
-      <div id="scan-region" class="absolute inset-0 border-2 border-yellow-400 opacity-50"></div>
+    <div id="employee-view">
+      <h2 class="text-xl font-bold mb-4 text-center">Scan Attendance QR Code 📷</h2>
+      <div id="video-container" class="w-full h-64 bg-black mb-4 relative">
+        <video id="qr-video" class="w-full h-full object-cover"></video>
+        <div id="scan-region" class="absolute inset-0 border-2 border-yellow-400 opacity-50"></div>
+      </div>
+      <div id="scan-result" class="mb-4 text-center font-bold"></div>
+      <button id="toggle-camera-button" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-2">
+        Start/Stop Camera
+      </button>
     </div>
-    <div id="scan-result" class="mb-4 text-center font-bold"></div>
-    <button id="start-button" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-      Start Scanning
-    </button>
+    <div id="admin-view" class="hidden">
+      <h2 class="text-xl font-bold mb-4 text-center">Generate Attendance QR Code</h2>
+      <div id="qr-code-container" class="w-full mb-4 flex justify-center">
+        <img id="qr-code-image" alt="QR Code" class="w-64 h-64">
+      </div>
+      <button id="generate-qr-button" class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+        Generate New QR Code
+      </button>
+    </div>
   </div>
 </main>
 <script th:inline="javascript">
   const video = document.getElementById('qr-video');
   const scanResult = document.getElementById('scan-result');
-  const startButton = document.getElementById('start-button');
+  const toggleCameraButton = document.getElementById('toggle-camera-button');
+  const generateQRButton = document.getElementById('generate-qr-button');
+  const qrCodeImage = document.getElementById('qr-code-image');
 
-  const qrScanner = new QrScanner(video, result => {
-    scanResult.textContent = `Scanned: ${result}`;
-    checkInOut(result);
-  });
+  let qrScanner = null;
+  let isAdmin = /*[[${isAdmin}]]*/ false;
 
-  startButton.addEventListener('click', () => {
-    if (qrScanner.hasFlash) {
-      qrScanner.toggleFlash();
+  if (isAdmin) {
+    document.getElementById('employee-view').classList.add('hidden');
+    document.getElementById('admin-view').classList.remove('hidden');
+  }
+
+  function initializeScanner() {
+    if (!qrScanner) {
+      qrScanner = new QrScanner(video, result => {
+        scanResult.textContent = `Scanned: ${result}`;
+        checkInOut(result);
+      });
     }
-    qrScanner.start();
+  }
+
+  toggleCameraButton.addEventListener('click', () => {
+    if (!qrScanner) {
+      initializeScanner();
+      qrScanner.start();
+      toggleCameraButton.textContent = 'Stop Camera';
+    } else {
+      qrScanner.stop();
+      qrScanner.destroy();
+      qrScanner = null;
+      toggleCameraButton.textContent = 'Start Camera';
+    }
   });
 
   function checkInOut(qrCode) {
@@ -56,6 +87,21 @@
             .catch(error => {
               scanResult.textContent = `Error: ${error.message}`;
             });
+  }
+
+  if (isAdmin) {
+    generateQRButton.addEventListener('click', () => {
+      fetch('/admin/generate-qr', {
+        method: 'POST',
+      })
+              .then(response => response.json())
+              .then(data => {
+                qrCodeImage.src = 'data:image/png;base64,' + data.qrCodeImage;
+              })
+              .catch(error => {
+                console.error('Error generating QR code:', error);
+              });
+    });
   }
 </script>
 </body>
