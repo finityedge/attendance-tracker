@@ -24,11 +24,10 @@ public class QRCodeService {
     private static final Logger logger = LoggerFactory.getLogger(QRCodeService.class);
     private static final String QR_CODE_PREFIX = "ATND:";
     private static final long QR_CODE_VALIDITY_MINUTES = 30;
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     public String generateQRCode() throws WriterException, IOException {
-        LocalDateTime now = LocalDateTime.now();
-        String timestamp = now.format(DATE_TIME_FORMATTER);
+        // Use Unix timestamp (milliseconds) for consistent time handling
+        String timestamp = String.valueOf(Instant.now().toEpochMilli());
         String content = QR_CODE_PREFIX + timestamp;
 
         logger.info("Generating QR code with content: {}", content);
@@ -52,12 +51,14 @@ public class QRCodeService {
                 return false;
             }
 
-            String timestamp = qrCodeContent.substring(QR_CODE_PREFIX.length());
-            LocalDateTime generationTime = LocalDateTime.parse(timestamp, DATE_TIME_FORMATTER);
-            LocalDateTime expiryTime = generationTime.plusMinutes(QR_CODE_VALIDITY_MINUTES);
+            String timestampStr = qrCodeContent.substring(QR_CODE_PREFIX.length());
+            long timestamp = Long.parseLong(timestampStr);
+            long currentTime = Instant.now().toEpochMilli();
+            long validityPeriod = QR_CODE_VALIDITY_MINUTES * 60 * 1000; // Convert minutes to milliseconds
 
-            boolean isValid = LocalDateTime.now().isBefore(expiryTime);
-            logger.info("QR code validation result: {}", isValid);
+            boolean isValid = (currentTime - timestamp) <= validityPeriod;
+            logger.info("QR code validation: timestamp={}, currentTime={}, diff={}, validityPeriod={}, isValid={}",
+                    timestamp, currentTime, currentTime - timestamp, validityPeriod, isValid);
 
             return isValid;
         } catch (Exception e) {
@@ -66,3 +67,4 @@ public class QRCodeService {
         }
     }
 }
+
