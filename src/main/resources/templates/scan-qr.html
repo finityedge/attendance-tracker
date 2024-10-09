@@ -130,7 +130,84 @@
   let scanCooldown = false;
   let qrExpiryInterval = null;
 
-  // Previous utility functions remain the same
+  function toggleSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    sidebar.classList.toggle('-translate-x-full');
+  }
+
+  function showQRGenerator() {
+    document.getElementById('employee-view').classList.add('hidden');
+    document.getElementById('admin-view').classList.remove('hidden');
+  }
+
+  function updateQRExpiry(generationTime) {
+    const expiryElement = document.getElementById('qr-expiry');
+    if (!expiryElement) return;
+
+    clearInterval(qrExpiryInterval);
+    qrExpiryInterval = setInterval(() => {
+      const now = new Date();
+      const genTime = new Date(generationTime);
+      const validityMinutes = 30;
+      const expiryTime = new Date(genTime.getTime() + validityMinutes * 60000);
+      const remainingTime = Math.max(0, Math.floor((expiryTime - now) / 1000));
+
+      if (remainingTime <= 0) {
+        expiryElement.textContent = 'QR Code has expired. Please generate a new one.';
+        expiryElement.classList.remove('text-gray-500');
+        expiryElement.classList.add('text-red-500');
+        clearInterval(qrExpiryInterval);
+        return;
+      }
+
+      const minutes = Math.floor(remainingTime / 60);
+      const seconds = remainingTime % 60;
+      expiryElement.textContent = `QR Code expires in ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }, 1000);
+  }
+
+  // Helper function to get CSRF token from cookies
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+  }
+
+  // Event Listeners
+  document.getElementById('generate-qr-button')?.addEventListener('click', async () => {
+    const button = document.getElementById('generate-qr-button');
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Generating...';
+
+    try {
+      // Changed from POST to GET
+      const response = await fetch('/attendance/admin/generate-qr', {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'X-XSRF-TOKEN': getCookie('XSRF-TOKEN')
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      document.getElementById('qr-code-image').src = 'data:image/png;base64,' + data.qrCodeImage;
+      document.getElementById('qr-placeholder').classList.add('hidden');
+      updateQRExpiry(new Date());
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      const errorMessage = error.message || 'Unknown error occurred';
+      document.getElementById('qr-expiry').textContent = `Error: ${errorMessage}`;
+      document.getElementById('qr-expiry').classList.add('text-red-500');
+    } finally {
+      button.disabled = false;
+      button.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Generate New QR Code';
+    }
+  });
 
   function validateQRCode(content) {
     try {
@@ -286,8 +363,6 @@
     }
   });
 
-  // Previous QR generation code remains the same
-
   // Clean up on page unload
   window.addEventListener('unload', () => {
     if (qrScanner) {
@@ -296,6 +371,7 @@
     }
     clearInterval(qrExpiryInterval);
   });
+
 </script>
 </body>
 </html>
