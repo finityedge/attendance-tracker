@@ -13,4 +13,6 @@ public interface AttendanceLogRepository extends JpaRepository<AttendanceLog, UU
     Optional<AttendanceLog> findByUserAndDate(User user, LocalDate date);
     List<AttendanceLog> findByUserOrderByDateDesc(User user);
     List<AttendanceLog> findByDateBetweenOrderByDateAsc(LocalDate startDate, LocalDate endDate);
+
+    List<AttendanceLog> findByUserAndDateBetweenOrderByDateAsc(User employee, LocalDate startDate, LocalDate endDate);
 }

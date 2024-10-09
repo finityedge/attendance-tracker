@@ -5,6 +5,7 @@ import com.finityedge.attendancetracker.model.User;
 import com.finityedge.attendancetracker.service.AttendanceService;
 import com.finityedge.attendancetracker.service.QRCodeService;
 import com.finityedge.attendancetracker.service.UserService;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -15,9 +16,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Controller
 @RequestMapping("/attendance")
@@ -87,6 +90,7 @@ public class AttendanceController {
     public String getAdminAttendanceLogs(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) UUID employeeId,
             Model model,
             Authentication authentication) {
         boolean isAdmin = authentication != null &&
@@ -98,18 +102,43 @@ public class AttendanceController {
         }
 
         if (startDate == null) {
-            startDate = LocalDate.now().withDayOfMonth(1); // First day of current month
+            startDate = LocalDate.now().withDayOfMonth(1);
         }
         if (endDate == null) {
-            endDate = LocalDate.now(); // Current date
+            endDate = LocalDate.now();
         }
 
-        List<AttendanceLog> logs = attendanceService.getAttendanceLogsBetweenDates(startDate, endDate);
+        List<AttendanceLog> logs = attendanceService.getFilteredAttendanceLogs(startDate, endDate, employeeId);
+        List<User> users = userService.getAllUsers();
+
         model.addAttribute("isAdmin", true);
         model.addAttribute("logs", logs);
-        model.addAttribute("username", authentication.getName()); // TODO: Change to actual admin username (if needed
+        model.addAttribute("users", users);
+        model.addAttribute("username", authentication.getName());
         model.addAttribute("startDate", startDate);
         model.addAttribute("endDate", endDate);
+        model.addAttribute("selectedEmployeeId", employeeId);
         return "admin-attendance-logs";
+    }
+
+    @GetMapping("/admin/export")
+    public void exportToExcel(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) UUID employeeId,
+            HttpServletResponse response) throws IOException {
+        if (startDate == null) {
+            startDate = LocalDate.now().withDayOfMonth(1);
+        }
+        if (endDate == null) {
+            endDate = LocalDate.now();
+        }
+
+        List<AttendanceLog> logs = attendanceService.getFilteredAttendanceLogs(startDate, endDate, employeeId);
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment; filename=attendance_logs.xlsx");
+
+        attendanceService.exportToExcel(logs, response.getOutputStream());
     }
 }
