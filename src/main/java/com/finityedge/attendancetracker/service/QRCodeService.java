@@ -14,16 +14,20 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 
 @Service
 public class QRCodeService {
-
     private static final String QR_CODE_PREFIX = "ATND:";
     private static final long QR_CODE_VALIDITY_MINUTES = 30;
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     public String generateQRCode() throws WriterException, IOException {
-        String content = QR_CODE_PREFIX + LocalDateTime.now().toString();
+        // Format: ATND:2024-03-20T14:30:00
+        String timestamp = LocalDateTime.now().format(DATE_TIME_FORMATTER);
+        String content = QR_CODE_PREFIX + timestamp;
+
         QRCodeWriter qrCodeWriter = new QRCodeWriter();
         BitMatrix bitMatrix = qrCodeWriter.encode(content, BarcodeFormat.QR_CODE, 200, 200);
 
@@ -34,11 +38,18 @@ public class QRCodeService {
     }
 
     public boolean validateQRCode(String qrCodeContent) {
-        if (!qrCodeContent.startsWith(QR_CODE_PREFIX)) {
+        try {
+            if (!qrCodeContent.startsWith(QR_CODE_PREFIX)) {
+                return false;
+            }
+
+            String timestamp = qrCodeContent.substring(QR_CODE_PREFIX.length());
+            LocalDateTime generationTime = LocalDateTime.parse(timestamp, DATE_TIME_FORMATTER);
+            LocalDateTime expiryTime = generationTime.plusMinutes(QR_CODE_VALIDITY_MINUTES);
+
+            return LocalDateTime.now().isBefore(expiryTime);
+        } catch (Exception e) {
             return false;
         }
-        String timestamp = qrCodeContent.substring(QR_CODE_PREFIX.length());
-        LocalDateTime generationTime = LocalDateTime.parse(timestamp);
-        return LocalDateTime.now().minusMinutes(QR_CODE_VALIDITY_MINUTES).isBefore(generationTime);
     }
 }

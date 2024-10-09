@@ -212,7 +212,14 @@
 
   function validateQRCode(content) {
     try {
-      // Check if the QR code starts with the required prefix
+      if (!content) {
+        return {
+          isValid: false,
+          error: 'Empty QR code content'
+        };
+      }
+
+      // Check prefix (must match backend QR_CODE_PREFIX)
       if (!content.startsWith('ATND:')) {
         return {
           isValid: false,
@@ -220,19 +227,19 @@
         };
       }
 
-      // Extract the timestamp part
+      // Extract timestamp (format: 2024-03-20T14:30:00)
       const timestamp = content.substring(5); // Length of "ATND:"
       const generationTime = new Date(timestamp);
 
-      // Check if the timestamp is valid
+      // Validate timestamp format
       if (isNaN(generationTime.getTime())) {
         return {
           isValid: false,
-          error: 'Invalid timestamp in QR code'
+          error: 'Invalid timestamp format'
         };
       }
 
-      // Check if the QR code is still valid (within 30 minutes)
+      // Check expiry (30 minutes)
       const now = new Date();
       const validityMinutes = 30;
       const expiryTime = new Date(generationTime.getTime() + validityMinutes * 60000);
@@ -251,21 +258,23 @@
       console.error('QR validation error:', error);
       return {
         isValid: false,
-        error: error
+        error: 'Error validating QR code: ' + error.message
       };
     }
   }
 
+  // Update handleQRCode function for better error handling
   async function handleQRCode(result) {
-    // show an alert box of the result
-    alert(result.text);
     if (isProcessing || scanCooldown) return;
     isProcessing = true;
 
     try {
-      // First validate the QR code format
-      const validation = validateQRCode(result.text);
+      if (!result || typeof result.text !== 'string') {
+        showScanResult('Invalid QR code format', false);
+        return;
+      }
 
+      const validation = validateQRCode(result.text);
       if (!validation.isValid) {
         showScanResult(validation.error, false);
         return;
@@ -289,17 +298,107 @@
         showScanResult(data.error || 'Failed to process attendance', false);
       }
 
+      // Set cooldown to prevent multiple scans
       scanCooldown = true;
       setTimeout(() => {
         scanCooldown = false;
       }, 5000);
     } catch (error) {
       console.error('Error processing attendance:', error);
-      showScanResult('Error processing attendance', false);
+      showScanResult('Error processing attendance: ' + error.message, false);
     } finally {
       isProcessing = false;
     }
   }
+
+  // function validateQRCode(content) {
+  //   try {
+  //     // Check if the QR code starts with the required prefix
+  //     if (!content.startsWith('ATND:')) {
+  //       return {
+  //         isValid: false,
+  //         error: 'Invalid QR code format'
+  //       };
+  //     }
+  //
+  //     // Extract the timestamp part
+  //     const timestamp = content.substring(5); // Length of "ATND:"
+  //     const generationTime = new Date(timestamp);
+  //
+  //     // Check if the timestamp is valid
+  //     if (isNaN(generationTime.getTime())) {
+  //       return {
+  //         isValid: false,
+  //         error: 'Invalid timestamp in QR code'
+  //       };
+  //     }
+  //
+  //     // Check if the QR code is still valid (within 30 minutes)
+  //     const now = new Date();
+  //     const validityMinutes = 30;
+  //     const expiryTime = new Date(generationTime.getTime() + validityMinutes * 60000);
+  //
+  //     if (now > expiryTime) {
+  //       return {
+  //         isValid: false,
+  //         error: 'QR code has expired'
+  //       };
+  //     }
+  //
+  //     return {
+  //       isValid: true
+  //     };
+  //   } catch (error) {
+  //     console.error('QR validation error:', error);
+  //     return {
+  //       isValid: false,
+  //       error: error
+  //     };
+  //   }
+  // }
+  //
+  // async function handleQRCode(result) {
+  //   if (isProcessing || scanCooldown) return;
+  //   isProcessing = true;
+  //
+  //   try {
+  //     // First validate the QR code format
+  //     const validation = validateQRCode(result.text);
+  //
+  //     if (!validation.isValid) {
+  //       showScanResult(validation.error, false);
+  //       return;
+  //     }
+  //
+  //     const response = await fetch('/attendance/check-in-out', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'X-XSRF-TOKEN': getCookie('XSRF-TOKEN')
+  //       },
+  //       body: JSON.stringify({ qrCode: result.text })
+  //     });
+  //
+  //     const data = await response.json();
+  //
+  //     if (response.ok) {
+  //       showScanResult(`${data.action} successful at ${new Date(data.timestamp).toLocaleTimeString()}`, true);
+  //       if (qrScanner) qrScanner.stop();
+  //     } else {
+  //       showScanResult(data.error || 'Failed to process attendance', false);
+  //     }
+  //
+  //     scanCooldown = true;
+  //     setTimeout(() => {
+  //       scanCooldown = false;
+  //     }, 5000);
+  //   } catch (error) {
+  //     console.error('Error processing attendance:', error);
+  //     showScanResult('Error processing attendance', false);
+  //   } finally {
+  //     isProcessing = false;
+  //   }
+  // }
 
   function initializeScanner() {
     if (!qrScanner) {
@@ -374,6 +473,7 @@
     }
     clearInterval(qrExpiryInterval);
   });
+
 
 </script>
 </body>
