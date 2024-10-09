@@ -65,7 +65,7 @@
     <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
       <div class="max-w-3xl mx-auto">
         <!-- Employee View -->
-        <div id="employee-view" th:if="${!isAdmin}" class="bg-white rounded-lg shadow-lg p-6">
+        <div id="employee-view" th:classappend="${isAdmin ? 'hidden' : ''}" class="bg-white rounded-lg shadow-lg p-6">
           <div class="text-center mb-6">
             <h2 class="text-2xl font-bold mb-2">Scan Attendance QR Code</h2>
             <p class="text-gray-600">Point your camera at the QR code to check in/out</p>
@@ -97,7 +97,7 @@
         </div>
 
         <!-- Admin View -->
-        <div id="admin-view" th:if="${isAdmin}" class="bg-white rounded-lg shadow-lg p-6 hidden">
+        <div id="admin-view" th:classappend="${!isAdmin ? 'hidden' : ''}" class="bg-white rounded-lg shadow-lg p-6">
           <div class="text-center mb-6">
             <h2 class="text-2xl font-bold mb-2">Generate Attendance QR Code</h2>
             <p class="text-gray-600">Create a new QR code for employee check-in/out</p>
