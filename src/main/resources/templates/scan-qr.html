@@ -223,7 +223,7 @@
       if (!content.startsWith('ATND:')) {
         return {
           isValid: false,
-          error: 'Invalid QR code format'
+          error: 'Invalid QR code format: ' + content
         };
       }
 
