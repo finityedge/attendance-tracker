@@ -257,7 +257,7 @@
   }
 
   async function handleQRCode(result) {
-    document.getElementById('test').textContent = result;
+    document.getElementById('test').textContent = result.text;
     if (isProcessing || scanCooldown) return;
     isProcessing = true;
 
