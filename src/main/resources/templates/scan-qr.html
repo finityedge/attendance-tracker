@@ -71,6 +71,7 @@
             <p class="text-gray-600">Point your camera at the QR code to check in/out</p>
             <p class="text-sm text-gray-500 mt-2">QR codes are valid for 30 minutes after generation</p>
           </div>
+          <p id="test"></p>
 
           <div class="relative aspect-w-16 aspect-h-9 mb-6">
             <div id="video-container" class="rounded-lg overflow-hidden bg-black">
@@ -256,6 +257,7 @@
   }
 
   async function handleQRCode(result) {
+    document.getElementById('test').textContent = result;
     if (isProcessing || scanCooldown) return;
     isProcessing = true;
 
