@@ -43,6 +43,7 @@ public class AttendanceController {
     @PostMapping("/check-in-out")
     @ResponseBody
     public ResponseEntity<?> checkInOut(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Map<String, String> payload) {
+        System.out.println("Received payload: " + payload);
         User user = userService.getUserByUsername(userDetails.getUsername());
         String qrCode = payload.get("qrCode");
         System.out.println("QR Code: " + qrCode);

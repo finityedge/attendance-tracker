@@ -179,7 +179,7 @@
       const response = await fetch('/attendance/check-in-out', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qrCode: result })
+        body: JSON.stringify({ qrCode: result.toString() })
       });
 
       const data = await response.json();
