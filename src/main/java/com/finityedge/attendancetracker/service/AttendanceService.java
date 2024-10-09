@@ -20,12 +20,15 @@ public class AttendanceService {
     private QRCodeService qrCodeService;
 
     public AttendanceLog checkInOut(User user, String qrCodeContent) {
+        System.out.println("QR Code: " + qrCodeContent);
         if (!qrCodeService.validateQRCode(qrCodeContent)) {
             throw new IllegalArgumentException("Invalid QR code");
         }
 
         LocalDate today = LocalDate.now();
         Optional<AttendanceLog> existingLog = attendanceLogRepository.findByUserAndDate(user, today);
+
+        System.out.println("Existing Log: " + existingLog);
 
         if (existingLog.isPresent()) {
             AttendanceLog log = existingLog.get();
