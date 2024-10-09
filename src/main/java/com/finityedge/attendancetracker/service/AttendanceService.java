@@ -31,7 +31,6 @@ public class AttendanceService {
     private UserRepository userRepository;
 
     public AttendanceLog checkInOut(User user, String qrCodeContent) {
-        System.out.println("QR Code: " + qrCodeContent);
         if (!qrCodeService.validateQRCode(qrCodeContent)) {
             throw new IllegalArgumentException("Invalid QR code");
         }
@@ -39,12 +38,12 @@ public class AttendanceService {
         LocalDate today = LocalDate.now();
         Optional<AttendanceLog> existingLog = attendanceLogRepository.findByUserAndDate(user, today);
 
-        System.out.println("Existing Log: " + existingLog);
-
         if (existingLog.isPresent()) {
             AttendanceLog log = existingLog.get();
             if (log.getCheckOutTime() == null) {
                 log.setCheckOutTime(LocalDateTime.now());
+            } else {
+                throw new IllegalStateException("Already checked out for today");
             }
             return attendanceLogRepository.save(log);
         } else {

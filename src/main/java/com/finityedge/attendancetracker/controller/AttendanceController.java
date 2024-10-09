@@ -35,38 +35,47 @@ public class AttendanceController {
     @Autowired
     private QRCodeService qrCodeService;
 
-//    @GetMapping("/scan")
-//    public String scanQrCodePage(Model model, Authentication authentication) {
-//        boolean isAdmin = authentication.getAuthorities().stream()
-//                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-//        model.addAttribute("isAdmin", isAdmin);
-//        return "scan-qr";
-//    }
-
-    @PostMapping("/check-in-out")
-    @ResponseBody
-    public ResponseEntity<?> checkInOut(@AuthenticationPrincipal UserDetails userDetails, @RequestBody Map<String, String> payload) {
-        System.out.println("Received payload: " + payload);
-        User user = userService.getUserByUsername(userDetails.getUsername());
-        String qrCode = payload.get("qrCode");
-        System.out.println("QR Code: " + qrCode);
-        try {
-            AttendanceLog log = attendanceService.checkInOut(user, qrCode);
-            return ResponseEntity.ok(Map.of("message", "Check-in/out successful", "log", log));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
     @GetMapping("/scan")
     public String scanQrCodePage(Model model, Authentication authentication) {
         boolean isAdmin = authentication != null &&
                 authentication.getAuthorities().stream()
                         .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
         model.addAttribute("isAdmin", isAdmin);
-        assert authentication != null;
-        model.addAttribute("username", authentication.getName()); // TODO: Change to actual admin username (if needed)
+        model.addAttribute("username", authentication.getName());
         return "scan-qr";
+    }
+
+    @PostMapping("/check-in-out")
+    @ResponseBody
+    public ResponseEntity<?> checkInOut(Authentication authentication, @RequestBody Map<String, String> payload) {
+        User user = userService.getUserByUsername(authentication.getName());
+        String qrCode = payload.get("qrCode");
+        try {
+            AttendanceLog log = attendanceService.checkInOut(user, qrCode);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Attendance marked successfully",
+                    "action", log.getCheckOutTime() == null ? "Check-in" : "Check-out",
+                    "timestamp", log.getCheckOutTime() == null ? log.getCheckInTime().toString() : log.getCheckOutTime().toString()
+            ));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/admin/generate-qr")
+    @ResponseBody
+    public ResponseEntity<?> generateQRCode(Authentication authentication) {
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (!isAdmin) {
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized"));
+        }
+        try {
+            String qrCodeImage = qrCodeService.generateQRCode();
+            return ResponseEntity.ok(Map.of("qrCodeImage", qrCodeImage));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to generate QR code"));
+        }
     }
 
     @GetMapping("/logs")
